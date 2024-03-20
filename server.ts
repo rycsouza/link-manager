@@ -2,10 +2,9 @@ import Env from "dotenv";
 import fastify from "fastify";
 import { z } from "zod";
 
+import { handler } from "./src/exceptions/Handler";
 import { sql } from "./src/lib/postgres";
 import { redis } from "./src/lib/redis";
-
-import { handler } from "./src/exceptions/Handler";
 
 const ENV = Env.config().parsed;
 
@@ -69,12 +68,12 @@ app.post("/api/links", async (request, reply) => {
   }
 });
 
-app.delete("/api/links", async (request) => {
+app.delete("/api/links/:code", async (request) => {
   const deleteLinkSchema = z.object({
     code: z.string().min(3),
   });
 
-  const { code } = deleteLinkSchema.parse(request.body);
+  const { code } = deleteLinkSchema.parse(request.params);
 
   try {
     await sql`DELETE FROM short_links WHERE code = ${code};`;
