@@ -1,14 +1,14 @@
-import fastify from "fastify";
-import { z } from "zod";
-import { sql } from "./src/lib/postgres";
-import postgres from "postgres";
-import { redis } from "./src/lib/redis";
 import Env from "dotenv";
+import fastify from "fastify";
+import postgres from "postgres";
+import { z } from "zod";
+
+import { sql } from "./src/lib/postgres";
+import { redis } from "./src/lib/redis";
 
 const ENV = Env.config().parsed;
 
 const app = fastify();
-const PORT = Number(ENV!.PORT);
 
 app.get("/:code", async (request, reply) => {
   const getLinkSchema = z.object({
@@ -82,8 +82,12 @@ app.get("/api/metrics", async () => {
   return metrics;
 });
 
+const HOST = ENV!.HOST;
+const PORT = Number(ENV!.PORT);
+
 app
   .listen({
+    host: HOST,
     port: PORT,
   })
   .then(() => {
