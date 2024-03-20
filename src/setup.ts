@@ -1,6 +1,6 @@
 import { sql } from "./lib/postgres";
 
-async function setup() {
+export const setup = async () => {
   await sql`
     CREATE TABLE IF NOT EXISTS short_links(
         id SERIAL PRIMARY KEY,
@@ -12,7 +12,5 @@ async function setup() {
 
   await sql.end();
 
-  console.log("SETUP is finish");
-}
-
-setup();
+  console.log("SETUP complete");
+};

@@ -1,10 +1,11 @@
 import Env from "dotenv";
 import fastify from "fastify";
-import postgres from "postgres";
 import { z } from "zod";
 
 import { sql } from "./src/lib/postgres";
 import { redis } from "./src/lib/redis";
+
+import { handler } from "./src/exceptions/Handler";
 
 const ENV = Env.config().parsed;
 
@@ -16,30 +17,37 @@ app.get("/:code", async (request, reply) => {
   });
 
   const { code } = getLinkSchema.parse(request.params);
-
-  const link = (
-    await sql`
+  try {
+    const link = (
+      await sql`
     SELECT id, original_url
     FROM short_links
     WHERE code = ${code}
   `
-  )[0];
+    )[0];
 
-  if (!link) return reply.status(400).send({ message: "Link NOT FOUND" });
+    if (!link) return reply.status(400).send({ message: "Link NOT FOUND" });
 
-  await redis.zIncrBy("metrics", 1, String(link.id));
+    await redis.zIncrBy("metrics", 1, String(link.id));
 
-  return reply.redirect(301, link.original_url);
+    return reply.redirect(301, link.original_url);
+  } catch (error) {
+    throw handler(error);
+  }
 });
 
 app.get("/api/links", async () => {
-  const result = await sql`
+  try {
+    const result = await sql`
     SELECT id, code, original_url, created_at
     FROM short_links
     ORDER BY created_at DESC
    `;
 
-  return result;
+    return result;
+  } catch (error) {
+    throw handler(error);
+  }
 });
 
 app.post("/api/links", async (request, reply) => {
@@ -57,13 +65,22 @@ app.post("/api/links", async (request, reply) => {
 
     return reply.status(201).send({ shortLink: link.code });
   } catch (error) {
-    if (error instanceof postgres.PostgresError) {
-      if (error.code === "23505") {
-        return reply.status(400).send({ message: "Duplicated CODE." });
-      }
-    }
+    throw handler(error);
+  }
+});
 
-    return reply.status(500).send({ message: "Internal error." });
+app.delete("/api/links", async (request) => {
+  const deleteLinkSchema = z.object({
+    code: z.string().min(3),
+  });
+
+  const { code } = deleteLinkSchema.parse(request.body);
+
+  try {
+    await sql`DELETE FROM short_links WHERE code = ${code};`;
+    return true;
+  } catch (error) {
+    throw handler(error);
   }
 });
 
@@ -90,6 +107,6 @@ app
     host: HOST,
     port: PORT,
   })
-  .then(() => {
+  .then(async () => {
     console.log(`Server is running | ${PORT}`);
   });
